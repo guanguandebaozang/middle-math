@@ -527,22 +527,36 @@ def main():
     import streamlit as st
     import streamlit_authenticator as stauth
 
-    # 读取secrets
-def main():
-    import streamlit as st
-    import streamlit_authenticator as stauth
+    # 第一步：先确保会话状态全部初始化（解决SessionInfo未初始化报错）
+    session_keys = [
+        "authentication_status", "name", "username", "user_data",
+        "practice_question_list", "current_question_idx", "question_submit_status"
+    ]
+    for k in session_keys:
+        if k not in st.session_state:
+            if k == "authentication_status":
+                st.session_state[k] = None
+            elif k == "user_data":
+                st.session_state[k] = {}
+            elif k == "practice_question_list":
+                st.session_state[k] = []
+            elif k == "current_question_idx":
+                st.session_state[k] = 0
+            elif k == "question_submit_status":
+                st.session_state[k] = {}
+            else:
+                st.session_state[k] = None
 
-    # 读取secrets（增加cookie_key兜底默认值）
+    # 读取secrets（带cookie_key兜底）
     try:
         sec = st.secrets
         creds_raw = sec["credentials"]
-        # 兜底，没有cookie_key就自动赋值默认字符串
         cookie_secret = sec.get("cookie_key", "math_app_safe_default_2026")
     except Exception as e:
         st.error(f"Secrets配置缺失：{str(e)}")
         st.stop()
 
-    # 组装插件标准credentials字典
+    # 组装标准认证字典
     credentials_dict = {"usernames": {}}
     user_keys = ["admin", "teacher", "stu1", "stu2", "stu3", "stu4", "stu5", "stu6"]
     for key in user_keys:
@@ -554,7 +568,7 @@ def main():
                 "password": creds_raw[pwd_key]
             }
 
-    # 标准初始化
+    # 认证器初始化
     authenticator = stauth.Authenticate(
         credentials=credentials_dict,
         cookie_name="math_app_auth",
@@ -562,10 +576,8 @@ def main():
         cookie_expiry_days=30
     )
 
-    # 登录渲染（这行保留，后面所有登录判断、侧边栏代码不动）
+    # 延后渲染登录框，会话初始化完成后再执行
     name, authentication_status, username = authenticator.login(location="main")
-    name, authentication_status, username = auth_result
-
     # 登录状态分支（无缩进错误）
     if authentication_status is None:
         st.info("👋 欢迎使用初中数学智能组卷刷题系统，请登录后使用")
