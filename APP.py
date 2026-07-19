@@ -576,20 +576,23 @@ def main():
         cookie_expiry_days=30
     )
 
-    # ========== 修复核心：新版login返回字典，禁止直接三元解包 ==========
+    # 新版登录获取字典
     auth_data = authenticator.login(location="main")
+    name = None
+    authentication_status = None
+    username = None
+
     if auth_data:
         name = auth_data.get("name")
         authentication_status = auth_data.get("authentication_status")
         username = auth_data.get("username")
-    else:
-        name = None
-        authentication_status = None
-        username = None
-
+        # 同步写入会话状态
+        st.session_state["name"] = name
+        st.session_state["authentication_status"] = authentication_status
+        st.session_state["username"] = username
     # ==================== 下面你原有登录判断、侧边栏、业务代码完全不动 ====================
     # 登录状态分支（无缩进错误）
-    if authentication_status is None:
+   if authentication_status is None:
         st.info("👋 欢迎使用初中数学智能组卷刷题系统，请登录后使用")
         st.markdown("""
 ### 云端上线说明
@@ -601,8 +604,10 @@ def main():
     elif authentication_status is False:
         st.error("❌ 账号或密码错误，请重新输入")
         return
-    elif authentication_status:
+    elif authentication_status is True:
+        # 登录成功强制刷新页面跳转
         st.session_state.username = username
+        st.rerun()
         # 下面你原有侧边栏、菜单代码完全不动
         # 权限菜单
         if username == "admin":
@@ -615,12 +620,13 @@ def main():
             st.header("🧩 功能导航")
             select_menu = st.radio("功能列表",menu)
             st.divider()
-            if st.button("🚪 退出登录",use_container_width=True):
-                authenticator.logout()
-                for k in list(st.session_state.keys()):
-                    if k in ["authentication_status","name","username"]:
-                        del st.session_state[k]
-                st.rerun()
+           if st.button("🚪 退出登录",use_container_width=True):
+    authenticator.logout()
+    # 清空会话缓存
+    del st.session_state["authentication_status"]
+    del st.session_state["name"]
+    del st.session_state["username"]
+    st.rerun()
 
         # 页面路由
         if select_menu == "📄 智能组卷打印":
