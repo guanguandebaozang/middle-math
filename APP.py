@@ -527,7 +527,7 @@ def main():
     import streamlit as st
     import streamlit_authenticator as stauth
 
-    # 第一步：先确保会话状态全部初始化（解决SessionInfo未初始化报错）
+    # 预先初始化全部会话状态，解决SessionInfo报错
     session_keys = [
         "authentication_status", "name", "username", "user_data",
         "practice_question_list", "current_question_idx", "question_submit_status"
@@ -547,7 +547,7 @@ def main():
             else:
                 st.session_state[k] = None
 
-    # 读取secrets（带cookie_key兜底）
+    # 读取secrets，自带cookie_key兜底
     try:
         sec = st.secrets
         creds_raw = sec["credentials"]
@@ -556,7 +556,7 @@ def main():
         st.error(f"Secrets配置缺失：{str(e)}")
         st.stop()
 
-    # 组装标准认证字典
+    # 组装标准账号字典
     credentials_dict = {"usernames": {}}
     user_keys = ["admin", "teacher", "stu1", "stu2", "stu3", "stu4", "stu5", "stu6"]
     for key in user_keys:
@@ -568,7 +568,7 @@ def main():
                 "password": creds_raw[pwd_key]
             }
 
-    # 认证器初始化
+    # 新版认证器初始化（0.3.x兼容）
     authenticator = stauth.Authenticate(
         credentials=credentials_dict,
         cookie_name="math_app_auth",
@@ -576,8 +576,18 @@ def main():
         cookie_expiry_days=30
     )
 
-    # 延后渲染登录框，会话初始化完成后再执行
-    name, authentication_status, username = authenticator.login(location="main")
+    # ========== 修复核心：新版login返回字典，禁止直接三元解包 ==========
+    auth_data = authenticator.login(location="main")
+    if auth_data:
+        name = auth_data.get("name")
+        authentication_status = auth_data.get("authentication_status")
+        username = auth_data.get("username")
+    else:
+        name = None
+        authentication_status = None
+        username = None
+
+    # ==================== 下面你原有登录判断、侧边栏、业务代码完全不动 ====================
     # 登录状态分支（无缩进错误）
     if authentication_status is None:
         st.info("👋 欢迎使用初中数学智能组卷刷题系统，请登录后使用")
