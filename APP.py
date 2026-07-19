@@ -522,11 +522,10 @@ def admin_question_manage():
         })
     st.dataframe(pd.DataFrame(preview),use_container_width=True,height=400)
 
-# ====================== 主程序函数（终极修复｜无缩进/无变量报错） ======================
+# ====================== 主程序函数（修复全部缩进｜适配0.3.x登录） ======================
 def main():
     import streamlit as st
     import streamlit_authenticator as stauth
-
     # 预先初始化全部会话状态，解决SessionInfo报错
     session_keys = [
         "authentication_status", "name", "username", "user_data",
@@ -546,7 +545,6 @@ def main():
                 st.session_state[k] = {}
             else:
                 st.session_state[k] = None
-
     # 读取secrets，自带cookie_key兜底
     try:
         sec = st.secrets
@@ -555,7 +553,6 @@ def main():
     except Exception as e:
         st.error(f"Secrets配置缺失：{str(e)}")
         st.stop()
-
     # 组装标准账号字典
     credentials_dict = {"usernames": {}}
     user_keys = ["admin", "teacher", "stu1", "stu2", "stu3", "stu4", "stu5", "stu6"]
@@ -567,7 +564,6 @@ def main():
                 "name": creds_raw[name_key],
                 "password": creds_raw[pwd_key]
             }
-
     # 新版认证器初始化（0.3.x兼容）
     authenticator = stauth.Authenticate(
         credentials=credentials_dict,
@@ -575,13 +571,11 @@ def main():
         key=cookie_secret,
         cookie_expiry_days=30
     )
-
     # 新版登录获取字典
     auth_data = authenticator.login(location="main")
     name = None
     authentication_status = None
     username = None
-
     if auth_data:
         name = auth_data.get("name")
         authentication_status = auth_data.get("authentication_status")
@@ -590,15 +584,14 @@ def main():
         st.session_state["name"] = name
         st.session_state["authentication_status"] = authentication_status
         st.session_state["username"] = username
-    # ==================== 下面你原有登录判断、侧边栏、业务代码完全不动 ====================
-    # 登录状态分支（无缩进错误）
-   if authentication_status is None:
+    # ==================== 登录状态分支（标准4空格缩进，修复595行报错） ====================
+    if authentication_status is None:
         st.info("👋 欢迎使用初中数学智能组卷刷题系统，请登录后使用")
         st.markdown("""
 ### 云端上线说明
 - 账号全部由 Streamlit Secrets 云端加密配置
 - 管理员后台可在线生成账号哈希、在线扩充题库
-- 题库永久保存，无需改代码即可更新题目
+- 题库永久保存，无需改代码即可更新
         """)
         return
     elif authentication_status is False:
@@ -608,7 +601,7 @@ def main():
         # 登录成功强制刷新页面跳转
         st.session_state.username = username
         st.rerun()
-        # 下面你原有侧边栏、菜单代码完全不动
+
         # 权限菜单
         if username == "admin":
             menu = ["📄 智能组卷打印","📝 在线刷题练习","📒 错题本","📊 正确率统计","🔧 管理员题库扩充"]
@@ -620,14 +613,14 @@ def main():
             st.header("🧩 功能导航")
             select_menu = st.radio("功能列表",menu)
             st.divider()
-           if st.button("🚪 退出登录",use_container_width=True):
-    authenticator.logout()
-    # 清空会话缓存
-    del st.session_state["authentication_status"]
-    del st.session_state["name"]
-    del st.session_state["username"]
-    st.rerun()
-
+            # 修复退出按钮缩进
+            if st.button("🚪 退出登录",use_container_width=True):
+                authenticator.logout()
+                # 清空会话缓存
+                del st.session_state["authentication_status"]
+                del st.session_state["name"]
+                del st.session_state["username"]
+                st.rerun()
         # 页面路由
         if select_menu == "📄 智能组卷打印":
             st.title("📚 初中数学智能组卷打印系统")
@@ -667,7 +660,6 @@ def main():
                 with c2:
                     with open(f2,"rb") as f:
                         st.download_button("下载解析PDF",f,file_name=f2,use_container_width=True)
-
         elif select_menu == "📝 在线刷题练习":
             practice_module(username)
         elif select_menu == "📒 错题本":
@@ -676,7 +668,6 @@ def main():
             statistic_module(username)
         elif select_menu == "🔧 管理员题库扩充":
             admin_question_manage()
-
 # 程序入口
 if __name__ == "__main__":
     main()
