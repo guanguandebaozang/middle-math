@@ -524,7 +524,6 @@ def admin_question_manage():
 
 # ====================== 主程序函数（终极修复｜无缩进/无变量报错） ======================
 def main():
-    # 【极简纯净版 无BUG登录内核｜修复所有TypeError/IndentationError】
     import streamlit as st
     import streamlit_authenticator as stauth
 
@@ -535,31 +534,28 @@ def main():
         st.error("配置读取失败，请检查云端Secrets配置")
         st.stop()
 
-    # 初始化账号列表
-    names = []
-    usernames = []
-    hashed_passwords = []
+    # ========== 这里是替换后的修复代码 ==========
+    credentials_dict = {"usernames": {}}
     user_keys = ["admin", "teacher", "stu1", "stu2", "stu3", "stu4", "stu5", "stu6"]
     for key in user_keys:
         if f"{key}_name" in creds and f"{key}_pwd" in creds:
-            names.append(creds[f"{key}_name"])
-            usernames.append(key)
-            hashed_passwords.append(creds[f"{key}_pwd"])
+            credentials_dict["usernames"][key] = {
+                "name": creds[f"{key}_name"],
+                "password": creds[f"{key}_pwd"]
+            }
 
-    # 标准认证初始化
     authenticator = stauth.Authenticate(
-        names,
-        usernames,
-        hashed_passwords,
-        "math_app_auth",
-        st.secrets.get("cookie_key", "math123456"),
-        30
+        credentials=credentials_dict,
+        cookie_name="math_app_auth",
+        key=st.secrets.get("cookie_key", "math123456"),
+        cookie_expiry_days=30
     )
+    # ===========================================
 
-    # 核心登录渲染
+    # 登录渲染（这行保留不动）
     name, authentication_status, username = authenticator.login(location="main")
 
-    # 状态判断【彻底修复617行报错、删除无效status变量、统一缩进】
+    # 下面的登录判断、侧边栏、菜单代码完全不用改
     if authentication_status is None:
         st.info("👋 欢迎使用初中数学智能组卷刷题系统，请登录后使用")
         st.markdown("""
@@ -574,6 +570,7 @@ def main():
         return
     elif authentication_status == True:
         st.session_state.username = username
+        # 后续原有业务代码不变……
         # 权限菜单
         if username == "admin":
             menu = ["📄 智能组卷打印","📝 在线刷题练习","📒 错题本","📊 正确率统计","🔧 管理员题库扩充"]
