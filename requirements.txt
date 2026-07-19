@@ -1,4 +1,4 @@
-streamlit==1.36.0
-streamlit-authenticator==0.2.3
+streamlit>=1.35,<1.40
+streamlit-authenticator==0.3.2
 pandas
 reportlab
