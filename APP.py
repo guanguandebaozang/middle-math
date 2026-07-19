@@ -528,10 +528,16 @@ def main():
     import streamlit_authenticator as stauth
 
     # 读取secrets
+def main():
+    import streamlit as st
+    import streamlit_authenticator as stauth
+
+    # 读取secrets（增加cookie_key兜底默认值）
     try:
         sec = st.secrets
         creds_raw = sec["credentials"]
-        cookie_secret = sec["cookie_key"]
+        # 兜底，没有cookie_key就自动赋值默认字符串
+        cookie_secret = sec.get("cookie_key", "math_app_safe_default_2026")
     except Exception as e:
         st.error(f"Secrets配置缺失：{str(e)}")
         st.stop()
@@ -548,7 +554,7 @@ def main():
                 "password": creds_raw[pwd_key]
             }
 
-    # 标准初始化，cookie_key从secrets强制读取，不使用默认兜底
+    # 标准初始化
     authenticator = stauth.Authenticate(
         credentials=credentials_dict,
         cookie_name="math_app_auth",
@@ -556,8 +562,8 @@ def main():
         cookie_expiry_days=30
     )
 
-    # 标准登录调用，返回顺序固定：name, auth_status, username
-    auth_result = authenticator.login(location="main")
+    # 登录渲染（这行保留，后面所有登录判断、侧边栏代码不动）
+    name, authentication_status, username = authenticator.login(location="main")
     name, authentication_status, username = auth_result
 
     # 登录状态分支（无缩进错误）
