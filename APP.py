@@ -527,50 +527,55 @@ def main():
     import streamlit as st
     import streamlit_authenticator as stauth
 
-    # 容错读取云端配置
+    # 读取secrets
     try:
-        creds = st.secrets["credentials"]
-    except Exception:
-        st.error("配置读取失败，请检查云端Secrets配置")
+        sec = st.secrets
+        creds_raw = sec["credentials"]
+        cookie_secret = sec["cookie_key"]
+    except Exception as e:
+        st.error(f"Secrets配置缺失：{str(e)}")
         st.stop()
 
-    # ========== 这里是替换后的修复代码 ==========
+    # 组装插件标准credentials字典
     credentials_dict = {"usernames": {}}
     user_keys = ["admin", "teacher", "stu1", "stu2", "stu3", "stu4", "stu5", "stu6"]
     for key in user_keys:
-        if f"{key}_name" in creds and f"{key}_pwd" in creds:
+        name_key = f"{key}_name"
+        pwd_key = f"{key}_pwd"
+        if name_key in creds_raw and pwd_key in creds_raw:
             credentials_dict["usernames"][key] = {
-                "name": creds[f"{key}_name"],
-                "password": creds[f"{key}_pwd"]
+                "name": creds_raw[name_key],
+                "password": creds_raw[pwd_key]
             }
 
+    # 标准初始化，cookie_key从secrets强制读取，不使用默认兜底
     authenticator = stauth.Authenticate(
         credentials=credentials_dict,
         cookie_name="math_app_auth",
-        key=st.secrets.get("cookie_key", "math123456"),
+        key=cookie_secret,
         cookie_expiry_days=30
     )
-    # ===========================================
 
-    # 登录渲染（这行保留不动）
-    name, authentication_status, username = authenticator.login(location="main")
+    # 标准登录调用，返回顺序固定：name, auth_status, username
+    auth_result = authenticator.login(location="main")
+    name, authentication_status, username = auth_result
 
-    # 下面的登录判断、侧边栏、菜单代码完全不用改
+    # 登录状态分支（无缩进错误）
     if authentication_status is None:
         st.info("👋 欢迎使用初中数学智能组卷刷题系统，请登录后使用")
         st.markdown("""
 ### 云端上线说明
-- 账号全部由 **Streamlit Secrets 云端加密配置**
-- 管理员后台可 **在线生成账号哈希、在线扩充题库**
+- 账号全部由 Streamlit Secrets 云端加密配置
+- 管理员后台可在线生成账号哈希、在线扩充题库
 - 题库永久保存，无需改代码即可更新题目
         """)
         return
-    elif authentication_status == False:
+    elif authentication_status is False:
         st.error("❌ 账号或密码错误，请重新输入")
         return
-    elif authentication_status == True:
+    elif authentication_status:
         st.session_state.username = username
-        # 后续原有业务代码不变……
+        # 下面你原有侧边栏、菜单代码完全不动
         # 权限菜单
         if username == "admin":
             menu = ["📄 智能组卷打印","📝 在线刷题练习","📒 错题本","📊 正确率统计","🔧 管理员题库扩充"]
