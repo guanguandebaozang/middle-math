@@ -522,11 +522,11 @@ def admin_question_manage():
         })
     st.dataframe(pd.DataFrame(preview),use_container_width=True,height=400)
 
-# ====================== 主程序函数（修复全部缩进｜适配0.3.x登录） ======================
+# ====================== 主程序函数（修复登录不跳转、缩进全部正确） ======================
 def main():
     import streamlit as st
     import streamlit_authenticator as stauth
-    # 预先初始化全部会话状态，解决SessionInfo报错
+    # 预先初始化全部会话状态
     session_keys = [
         "authentication_status", "name", "username", "user_data",
         "practice_question_list", "current_question_idx", "question_submit_status"
@@ -545,6 +545,7 @@ def main():
                 st.session_state[k] = {}
             else:
                 st.session_state[k] = None
+
     # 读取secrets，自带cookie_key兜底
     try:
         sec = st.secrets
@@ -553,6 +554,7 @@ def main():
     except Exception as e:
         st.error(f"Secrets配置缺失：{str(e)}")
         st.stop()
+
     # 组装标准账号字典
     credentials_dict = {"usernames": {}}
     user_keys = ["admin", "teacher", "stu1", "stu2", "stu3", "stu4", "stu5", "stu6"]
@@ -564,27 +566,36 @@ def main():
                 "name": creds_raw[name_key],
                 "password": creds_raw[pwd_key]
             }
-    # 新版认证器初始化（0.3.x兼容）
+
+    # 新版认证器初始化
     authenticator = stauth.Authenticate(
         credentials=credentials_dict,
         cookie_name="math_app_auth",
         key=cookie_secret,
         cookie_expiry_days=30
     )
-    # 新版登录获取字典
+
+    # 渲染登录框
     auth_data = authenticator.login(location="main")
     name = None
     authentication_status = None
     username = None
+
+    # 登录数据存入会话
     if auth_data:
         name = auth_data.get("name")
         authentication_status = auth_data.get("authentication_status")
         username = auth_data.get("username")
-        # 同步写入会话状态
         st.session_state["name"] = name
         st.session_state["authentication_status"] = authentication_status
         st.session_state["username"] = username
-    # ==================== 登录状态分支（标准4空格缩进，修复595行报错） ====================
+
+    # 从会话读取最新登录状态（解决刷新丢失登录）
+    authentication_status = st.session_state.get("authentication_status")
+    name = st.session_state.get("name")
+    username = st.session_state.get("username")
+
+    # ========== 登录状态判断 ==========
     if authentication_status is None:
         st.info("👋 欢迎使用初中数学智能组卷刷题系统，请登录后使用")
         st.markdown("""
@@ -597,77 +608,76 @@ def main():
     elif authentication_status is False:
         st.error("❌ 账号或密码错误，请重新输入")
         return
-    elif authentication_status is True:
-        # 登录成功强制刷新页面跳转
-        st.session_state.username = username
-        st.rerun()
 
-        # 权限菜单
-        if username == "admin":
-            menu = ["📄 智能组卷打印","📝 在线刷题练习","📒 错题本","📊 正确率统计","🔧 管理员题库扩充"]
-        else:
-            menu = ["📄 智能组卷打印","📝 在线刷题练习","📒 错题本","📊 正确率统计"]
-        with st.sidebar:
-            st.success(f"✅ 欢迎您，{name}")
-            st.divider()
-            st.header("🧩 功能导航")
-            select_menu = st.radio("功能列表",menu)
-            st.divider()
-            # 修复退出按钮缩进
-            if st.button("🚪 退出登录",use_container_width=True):
-                authenticator.logout()
-                # 清空会话缓存
-                del st.session_state["authentication_status"]
-                del st.session_state["name"]
-                del st.session_state["username"]
-                st.rerun()
-        # 页面路由
-        if select_menu == "📄 智能组卷打印":
-            st.title("📚 初中数学智能组卷打印系统")
-            st.subheader("真题题库｜随机组卷｜带解析｜PDF+TXT双格式导出")
-            st.divider()
-            QUESTION_BANK = load_json_bank()
-            st.info(f"✅ 当前题库总量：{len(QUESTION_BANK)} 道")
-            g_list = ["全部","初一","初二","初三"]
-            sel_g = st.selectbox("选择学段",g_list)
-            final_g = None if sel_g=="全部" else sel_g
-            cnt = st.slider("出题数量",5,80,30,5)
-            shuffle = st.checkbox("题目随机打乱",value=True)
-            st.divider()
-            b1,b2 = st.columns(2)
-            with b1:
-                gen = st.button("📄 生成试卷文本",use_container_width=True)
-            with b2:
-                pdf_export = st.button("🖨️ 导出PDF打印文件",use_container_width=True)
-            if gen:
-                qs = select_questions(cnt,final_g,shuffle)
-                pure_txt,_ = generate_pure_paper(qs)
-                ana_txt,_ = generate_analysis_paper(qs)
-                st.success("✅ 试卷生成完成")
-                st.subheader("纯净考试版")
-                st.text_area("",pure_txt,height=350)
-                st.subheader("解析答案版")
-                st.text_area("",ana_txt,height=350)
-            if pdf_export:
-                qs = select_questions(cnt,final_g,shuffle)
-                f1 = generate_pdf_paper(qs,False)
-                f2 = generate_pdf_paper(qs,True)
-                st.success("✅ PDF导出成功")
-                c1,c2 = st.columns(2)
-                with c1:
-                    with open(f1,"rb") as f:
-                        st.download_button("下载纯净PDF",f,file_name=f1,use_container_width=True)
-                with c2:
-                    with open(f2,"rb") as f:
-                        st.download_button("下载解析PDF",f,file_name=f2,use_container_width=True)
-        elif select_menu == "📝 在线刷题练习":
-            practice_module(username)
-        elif select_menu == "📒 错题本":
-            error_book_module(username)
-        elif select_menu == "📊 正确率统计":
-            statistic_module(username)
-        elif select_menu == "🔧 管理员题库扩充":
-            admin_question_manage()
+    # ========== 登录成功：所有功能页面移到此处（删除原rerun） ==========
+    # 权限菜单
+    if username == "admin":
+        menu = ["📄 智能组卷打印","📝 在线刷题练习","📒 错题本","📊 正确率统计","🔧 管理员题库扩充"]
+    else:
+        menu = ["📄 智能组卷打印","📝 在线刷题练习","📒 错题本","📊 正确率统计"]
+
+    with st.sidebar:
+        st.success(f"✅ 欢迎您，{name}")
+        st.divider()
+        st.header("🧩 功能导航")
+        select_menu = st.radio("功能列表",menu)
+        st.divider()
+        # 退出按钮缩进完全正确
+        if st.button("🚪 退出登录",use_container_width=True):
+            authenticator.logout()
+            del st.session_state["authentication_status"]
+            del st.session_state["name"]
+            del st.session_state["username"]
+            st.rerun()
+
+    # 页面路由
+    if select_menu == "📄 智能组卷打印":
+        st.title("📚 初中数学智能组卷打印系统")
+        st.subheader("真题题库｜随机组卷｜带解析｜PDF+TXT双格式导出")
+        st.divider()
+        QUESTION_BANK = load_json_bank()
+        st.info(f"✅ 当前题库总量：{len(QUESTION_BANK)}")
+        g_list = ["全部","初一","初二","初三"]
+        sel_g = st.selectbox("选择学段",g_list)
+        final_g = None if sel_g=="全部" else sel_g
+        cnt = st.slider("出题数量",5,80,30,5)
+        shuffle = st.checkbox("题目随机打乱",value=True)
+        st.divider()
+        b1,b2 = st.columns(2)
+        with b1:
+            gen = st.button("📄 生成试卷文本",use_container_width=True)
+        with b2:
+            pdf_export = st.button("🖨️ 导出PDF打印文件",use_container_width=True)
+        if gen:
+            qs = select_questions(cnt,final_g,shuffle)
+            pure_txt,_ = generate_pure_paper(qs)
+            ana_txt,_ = generate_analysis_paper(qs)
+            st.success("✅ 试卷生成完成")
+            st.subheader("纯净考试版")
+            st.text_area("",pure_txt,height=350)
+            st.subheader("解析答案版")
+            st.text_area("",ana_txt,height=350)
+        if pdf_export:
+            qs = select_questions(cnt,final_g,shuffle)
+            f1 = generate_pdf_paper(qs,False)
+            f2 = generate_pdf_paper(qs,True)
+            st.success("✅ PDF导出成功")
+            c1,c2 = st.columns(2)
+            with c1:
+                with open(f1,"rb") as f:
+                    st.download_button("下载纯净PDF",f,file_name=f1,use_container_width=True)
+            with c2:
+                with open(f2,"rb") as f:
+                    st.download_button("下载解析PDF",f,file_name=f2,use_container_width=True)
+    elif select_menu == "📝 在线刷题练习":
+        practice_module(username)
+    elif select_menu == "📒 错题本":
+        error_book_module(username)
+    elif select_menu == "📊 正确率统计":
+        statistic_module(username)
+    elif select_menu == "🔧 管理员题库扩充":
+        admin_question_manage()
+
 # 程序入口
 if __name__ == "__main__":
     main()
