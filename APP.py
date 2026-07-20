@@ -1,7 +1,3 @@
-# -*- coding: utf-8 -*-
-# 【终极云端安全版】Streamlit + GitHub 正式上线专用
-# 全部账号读取云端Secrets，代码0敏感信息、0明文密码
-# 修复：IndentationError、TypeError登录崩溃、变量不匹配、代码冲突
 import json
 import os
 import random
@@ -16,7 +12,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 
 # ====================== 全局页面配置 ======================
 st.set_page_config(
-    page_title="初中数学智能组卷刷题系统",
+    page_title="关关初中数学智能组卷刷题系统",
     page_icon="📚",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -54,7 +50,7 @@ PAPER_HEADER = """
 试卷名称：2021-2025中考数学真题试卷
 组卷时间：{}
 适用学段：初中数学
-题型：选择题、填空题
+题型：选择题
 ==============================
 """
 
@@ -184,12 +180,20 @@ def upload_json_question_bank(uploaded_file, mode="append"):
             return None, "JSON根节点必须是数组列表"
         standard_keys = ["id", "type", "grade", "chapter", "q", "opts", "ans", "analysis", "source"]
         valid_questions = []
+        invalid_count = 0
         for idx, item in enumerate(upload_data, 1):
-            if not all(key in item for key in standard_keys):
+            miss_key = [k for k in standard_keys if k not in item]
+            if miss_key:
+                invalid_count += 1
+                st.warning(f"第{idx}题缺失字段：{miss_key}，已跳过")
                 continue
             if len(item["opts"]) != 4 or item["ans"] not in ["A","B","C","D"]:
+                invalid_count += 1
+                st.warning(f"第{idx}题选项数量/答案字母错误，已跳过")
                 continue
             valid_questions.append(item)
+        if invalid_count > 0:
+            st.info(f"本次上传共{len(upload_data)}道，无效{invalid_count}道，有效{len(valid_questions)}道")
         if not valid_questions:
             return None, "无有效题目"
         if mode == "cover":
@@ -198,6 +202,9 @@ def upload_json_question_bank(uploaded_file, mode="append"):
             local_bank = load_json_bank()
             local_ids = [q["id"] for q in local_bank]
             new_ques = [q for q in valid_questions if q["id"] not in local_ids]
+            repeat_num = len(valid_questions) - len(new_ques)
+            if repeat_num > 0:
+                st.info(f"有{repeat_num}道题目ID与本地重复，追加模式自动忽略")
             final_bank = local_bank + new_ques
         with open("question_bank.json", "w", encoding="utf-8") as f:
             json.dump(final_bank, f, ensure_ascii=False, indent=2)
@@ -597,12 +604,11 @@ def main():
 
     # ========== 登录状态判断 ==========
     if authentication_status is None:
-        st.info("👋 欢迎使用初中数学智能组卷刷题系统，请登录后使用")
+        st.info("👋 欢迎使用关关初中数学智能组卷刷题系统，请登录后使用")
         st.markdown("""
-### 云端上线说明
-- 账号全部由 Streamlit Secrets 云端加密配置
-- 管理员后台可在线生成账号哈希、在线扩充题库
-- 题库永久保存，无需改代码即可更新
+### 系统使用前说明
+- 账号创建请联系关关VX：lgln11，QQ：2603970758
+- 做题过程中有任何意见或者建议，都可以随时联系我们，本网址终身有效，非常欢迎各位的鼎力支持，关关愿各位都能拿到自己理想的成绩！
         """)
         return
     elif authentication_status is False:
@@ -636,7 +642,7 @@ def main():
         st.subheader("真题题库｜随机组卷｜带解析｜PDF+TXT双格式导出")
         st.divider()
         QUESTION_BANK = load_json_bank()
-        st.info(f"✅ 当前题库总量：{len(QUESTION_BANK)}")
+        print("当前读取到题库总数量：", len(QUESTION_BANK))
         g_list = ["全部","初一","初二","初三"]
         sel_g = st.selectbox("选择学段",g_list)
         final_g = None if sel_g=="全部" else sel_g
